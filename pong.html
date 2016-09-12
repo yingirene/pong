@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+		<meta content="utf-8" http-equiv="encoding">
+		<style>
+			button {
+				border: solid;
+				padding: 10px;
+				width: 120px;
+				color: black;
+				font-size: 50px;
+				text-align: center;
+				background-color: rgba(76, 175, 80, 0);
+			}
+			#playerMenu {
+				width: 800px;
+				height: 600px;
+				position: absolute;
+				top: 0px;
+				left: 0px;
+			}
+			#playerOpt1 {
+				left: 28%;
+				top: 55%;
+				position: relative;
+				z-index: 10;
+			}
+			#playerOpt2 {
+				left: 43%;
+				top: 55%;
+				position: relative;
+				z-index: 10;
+			}
+		</style>
+	</head>
+
+	<body>
+		<canvas id="gameCanvas" width="800" height="600"></canvas>
+		<div id="playerMenu">
+			<button id ="playerOpt1">1</button>
+			<button id ="playerOpt2">2</button>
+		</div>
+	</body>
+	<script>
+		var canvas, canvasContext;
+		var butt1, butt2;
+		var ball, player1, player2;
+		var bgColor = 'black';
+		var running = false;
+		var isGameOver = true;
+		var numBalls = 5;
+		var ballCount = 0;
+		var map = {};
+		var speedAI = 2;
+		var sfx = new Audio("sfx.wav");
+
+		function ballClass() {
+			this.x = canvas.width/2;
+			this.y = canvas.height/2;
+			this.velX = (Math.floor((Math.random() * 2) + 1) == 2) ? 1 : -1;
+			this.velY = Math.floor((Math.random() * 2) - 1);
+			this.factor = 2;
+
+			this.move = function() {
+				this.x += this.velX * this.factor;
+				this.y += this.velY * this.factor;
+
+				if(this.x < -10) {
+					player2.addPoints();
+					newBall();
+				}
+				else if(this.x >= canvas.width + 10) {
+					player1.addPoints();
+					newBall();
+				}
+				if(this.y <= 5 || this.y >= canvas.height - 5) {
+					this.velY *= -1;
+				}
+			}
+
+			this.collision = function(delta) {
+				this.velX *= -1;
+				this.velY = delta/30;
+				sfx.play();
+				//randomBGColor();
+			}
+
+			this.draw = function() {
+				canvasContext.fillStyle = 'white';
+				canvasContext.beginPath();
+				canvasContext.arc(this.x, this.y, 10, 0, 2 * Math.PI, false);
+				canvasContext.fill();
+				canvasContext.closePath();
+			}
+		}
+
+		function paddleClass() {
+			this.width = 20;
+			this.height = 100;
+			this.x;
+			this.y = (canvas.height/2) - (this.height/2);
+			this.points = 0;
+			this.isAI = false;
+
+			this.setPlayer = function(right) {
+				if(!right) {
+					this.x = 20;
+				}
+				if(right) {
+					this.x = canvas.width - (20 + this.width);
+				}
+			}
+
+			this.addPoints = function() {
+				this.points++;
+			}
+
+			this.canMove = function(vert) {
+				var newLoc = this.y + vert;
+				return (newLoc >= 0 && (newLoc+this.height) <= canvas.height);
+			}
+
+			this.move = function(vert) {
+				var newLoc = this.y + vert;
+				if(this.canMove(vert)) {
+					this.y = newLoc;
+				}
+				drawAll();
+			}
+
+			this.draw = function() {
+				canvasContext.fillStyle = 'white';
+				canvasContext.fillRect(this.x, this.y, this.width, this.height);
+			}
+
+			this.makeAI = function() {
+				this.isAI = true;
+			}
+		}
+
+		window.onload = function() {
+			canvas = document.getElementById('gameCanvas');
+			canvasContext = canvas.getContext('2d');
+
+			butt1 = document.getElementById('playerOpt1');
+			butt2 = document.getElementById('playerOpt2');
+
+			newGame();
+			var framesPerSecond = 600;
+			setInterval(updateAll, 1000/framesPerSecond);
+		}
+
+		function newGame() {
+			ballCount = 0;
+			map = {'w': false, 's': false, 'ArrowUp': false, 'ArrowDown': false};
+			butt1.style.display = 'inline';
+			butt2.style.display = 'inline';
+
+			canvasContext.fillStyle = "white";
+			canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+			canvasContext.fillStyle = "black";
+			canvasContext.font = "25px Helvetica";
+			canvasContext.textAlign = "left";
+			var controlText = "Player 1";
+			canvasContext.fillText(controlText, 10, canvas.height - 45);
+			controlText = "Controls: w & s";
+			canvasContext.fillText(controlText, 10, canvas.height - 15);
+			canvasContext.textAlign = "right";
+			controlText = "Player 2";
+			canvasContext.fillText(controlText, canvas.width - 10, canvas.height - 45);
+			controlText = "Controls: Arrow Up & Arrow Down";
+			canvasContext.fillText(controlText, canvas.width - 10, canvas.height - 15);
+			canvasContext.font = "50px Helvetica";
+			canvasContext.textAlign = "center";
+			var startText = "How many players?";
+			canvasContext.fillText(startText, canvas.width/2, (canvas.height/2) - 15);
+
+			ball = new ballClass();
+			ballCount++;
+			player1 = new paddleClass();
+			player1.setPlayer(0);
+			player2 = new paddleClass();
+			player2.setPlayer(1);
+			butt1.onclick = function() {
+				player2.makeAI();
+				startGame();
+			}
+			butt2.onclick = function() {
+				startGame();
+			}
+		}
+
+		function startGame() {
+			butt1.style.display = 'none';
+			butt2.style.display = 'none';
+			running = true;
+			isGameOver = false;
+		}
+
+		function newBall() {
+			ballCount++;
+			if(ballCount > numBalls) {
+				gameOver();
+				return;
+			}
+			ball = new ballClass();
+		}
+
+		function updateAll() {
+			if(running) {
+				moveAll();
+				checkCollision();
+				drawAll();
+			}
+		}
+
+		function moveAll() {
+			ball.move();
+			for(key in map) {
+				if(map['w']) {
+					if(player1.canMove(-0.5)) {
+							player1.move(-0.5);
+					}
+				}
+				if(map['s']) {
+					if(player1.canMove(0.5)) {
+						player1.move(0.5);
+					}
+				}
+				if(!player2.isAI) {
+					if(map['ArrowUp']) {
+						if(player2.canMove(-0.5)) {
+							player2.move(-0.5);
+						}
+					}
+					if(map['ArrowDown']) {
+						if(player2.canMove(0.5)) {
+							player2.move(0.5);
+						}
+					}
+				}
+			}
+			if(player2.isAI) {
+				if(ball.y > (player2.y+(player2.height/2)-10) && ball.y < (player2.y+(player2.height/2)+10) ) {
+					return;
+				}
+				var velAI = ball.y > (player2.y+(player2.height/2)) ? 1 : -1;
+				player2.move(velAI * speedAI);
+			}
+		}
+
+		window.addEventListener('keydown', function(e) {
+			if(running) {
+				if(e.key in map) {
+					map[e.key] = true;
+				}
+			}
+			else {
+				if(isGameOver) {
+					if(e.key == ' ') {
+						newGame();
+					}
+				}
+			}
+		});
+		window.addEventListener('keyup', function(e) {
+			if(running) {
+				if(e.key in map) {
+					map[e.key] = false;
+				}
+			}
+		});
+
+		function checkCollision() {
+			var dloc;
+			if((ball.x <= player1.x+player1.width) && ball.x > player1.x+player1.width-5
+					&& ball.y >= player1.y && ball.y <= player1.y+player1.height) {
+						dloc = -1 * (player1.y+(player1.height)/2 - ball.y);
+						ball.collision(dloc);
+			}
+			else if(ball.x >= player2.x && ball.x < player2.x+5
+					&& ball.y >= player2.y && ball.y <= player2.y+player2.height) {
+						dloc = -1 * (player2.y+(player2.height)/2 - ball.y);
+						ball.collision(dloc);
+			}
+		}
+
+		function drawAll() {
+			canvasContext.fillStyle = bgColor;
+			canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+			ball.draw();
+			drawScore();
+			player1.draw();
+			player2.draw();
+		}
+
+		function drawScore() {
+			var scoreText = player1.points + " : " + player2.points;
+			canvasContext.fillText(scoreText, canvas.width/2, (canvas.height/2) + 18);
+		}
+
+		function gameOver() {
+			running = false;
+			isGameOver = true;
+			setTimeout(showEnd, 1000/600);
+		}
+
+		function showEnd() {
+			var winner = (player1.points > player2.points) ? "Player 1" : "Player 2";
+			var gameOverText = "Game Over.";
+			canvasContext.fillStyle = 'black';
+			canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+			canvasContext.fillStyle = 'white';
+			canvasContext.fillText(gameOverText, canvas.width/2, (canvas.height/2) - 15);
+			gameOverText = "The Winner is " + winner;
+			canvasContext.fillText(gameOverText, canvas.width/2, (canvas.height/2) + 45);
+			canvasContext.font = "30px Helvetica";
+			gameOverText = "Press the spacebar to start a new game.";
+			canvasContext.fillText(gameOverText, canvas.width/2, (canvas.height-50));
+		}
+
+		function randomBGColor() {
+			bgColor = '#'+Math.random().toString(16).substr(-6);
+			canvasContext.fillStyle = bgColor;
+			canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+			ball.draw();
+			player1.draw();
+			player2.draw();
+		}
+	</script>
+</html>
